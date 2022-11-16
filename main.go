@@ -5,25 +5,35 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 	// "encoding/json"
 )
 
-func main() {
-    var res *http.Response;
-    var err error;
+const id_request string = "https://opentimetable.dcu.ie/broker/api/CategoryTypes/241e4d36-60e0-49f8-b27e-99416745d98d/Categories/Filter?pageNumber=1&query="
+func module_code_to_id(module string) {
+    var url string = id_request + module;
 
-    /* make http get request */
-    res, err = http.Get("https://opentimetable.dcu.ie");
+    client := http.Client {Timeout: time.Duration(3) * time.Second};
 
-    /* handle error if any */
+    req, err := http.NewRequest("POST", url, nil);
     if err != nil {
-        fmt.Fprintf(os.Stderr, "error http request: %s\n", err);
-        return;
+        fmt.Fprintf(os.Stderr, "error in constructing http request: %s\n", err);
     }
 
-    body, err := ioutil.ReadAll(res.Body);
+    req.Header.Add("Authorization", "basic T64Mdy7m[");
+    req.Header.Add("Content-Type", "application/json; charset=utf-8");
+    req.Header.Add("Accept", "application/json; charset=utf-8");
+    req.Header.Add("credentials", "include");
+    req.Header.Add("Origin", "https://opentimetable.dcu.ie/");
+    req.Header.Add("Referer", "https://opentimetable.dcu.ie/");
 
-    fmt.Println(string(body));
+    res, err := client.Do(req);
+    body, err := ioutil.ReadAll(res.Body);
+    fmt.Printf(string(body));
+}
+
+func main() {
+    module_code_to_id("comsci2");
 }
 
 /*
