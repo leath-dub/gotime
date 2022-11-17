@@ -2,7 +2,6 @@ package main
 
 import (
     "fmt"
-    //"io/ioutil"
     "net/http"
     "os"
     "time"
@@ -10,56 +9,82 @@ import (
 )
 
 /* some literals/constants */
-const id_request string = "https://opentimetable.dcu.ie/broker/api/CategoryTypes/241e4d36-60e0-49f8-b27e-99416745d98d/Categories/Filter?pageNumber=1&query="
+
+var category map[string]string = map[string]string {
+    "Programmes of Study": "241e4d36-60e0-49f8-b27e-99416745d98d",
+    "Module": "525fe79b-73c3-4b5c-8186-83c652b3adcc",
+    "Location": "1e042cb1-547d-41d4-ae93-a1f2c3d34538",
+}
+
+var request map[string]string = map[string]string {
+    "id": "/categories/filter?pagenumber=1&query=",
+    "timetable": "/categories/events/filter",
+}
+
+const prefix_request string = "https://opentimetable.dcu.ie/broker/api/categorytypes/"
+
 var headers http.Header = http.Header {
-        "Authorization": {"basic T64Mdy7m["},
-        "Content-Type": {"application/json; charset=utf-8"},
-        "Accept": {"application/json; charset=utf-8"},
-        "credentials": {"include"},
-        "Origin": {"https://opentimetable.dcu.ie/"},
-        "Referer": {"https://opentimetable.dcu.ie/"},
-};
+    "Authorization": {"basic T64Mdy7m["},
+    "Content-Type": {"application/json; charset=utf-8"},
+    "Accept": {"application/json; charset=utf-8"},
+    "credentials": {"include"},
+    "Origin": {"https://opentimetable.dcu.ie/"},
+    "Referer": {"https://opentimetable.dcu.ie/"},
+}
 
-/* request id from module code */
-func module_code_to_id(module string) (string) {
-    var url string = id_request + module;
-
-    client := http.Client {Timeout: time.Duration(3) * time.Second};
-
-    req, err := http.NewRequest("POST", url, nil);
+func die(err error) {
     if err != nil {
-        fmt.Fprintf(os.Stderr, "error in constructing http request: %s\n", err);
+        fmt.Fprintf(os.Stderr, "error: %s", err)
+        os.Exit(1)
+    }
+}
+
+func construct_api_request(prefix string, cat string, req string, extra string) (string) {
+    return prefix + category[cat] + request[req] + extra
+}
+
+func api_request(url string) (string) {
+    client := http.Client {Timeout: time.Duration(3) * time.Second}
+
+    req, err := http.NewRequest("POST", url, nil)
+    die(err)
+
+    req.Header = headers
+    res, err := client.Do(req)
+    if res.StatusCode != 200 {
+        fmt.Fprintf(os.Stderr, "http status code was not 200: status %d\n", res.StatusCode)
+        os.Exit(1)
+    }
+    die(err)
+
+    var decoder *json.Decoder
+    decoder = json.NewDecoder(res.Body)
+
+    type identity_t struct {
+        Results []struct{Identity string}
     }
 
-    req.Header = headers;
-    res, err := client.Do(req);
+    var msg identity_t
+    err = decoder.Decode(&msg)
+    die(err)
 
-    var decoder *json.Decoder;
-    decoder = json.NewDecoder(res.Body);
-
-    type result_t struct {
-        ParentCategoryIdentities []string
-        CategoryTypeIdentity string
-        CategoryTypeName string
-        CategoryEvents string
-        Name string
-        Identity string
+    if len(msg.Results) == 0 {
+        fmt.Fprintf(
+            os.Stderr,
+            "Results array is length 0, possibly invalid request, ",
+        )
+        os.Exit(1)
     }
 
-    type message_t struct {
-        TotalPages int
-        CurrentPage int
-        Results []result_t
-        Count int
-    }
-
-    var msg message_t;
-    err = decoder.Decode(&msg);
-    return msg.Results[0].Identity;
+    return msg.Results[0].Identity
 }
 
 func main() {
-    fmt.Printf("%s\n", module_code_to_id("comsci2"));
+    fmt.Printf(api_request(
+        construct_api_request(
+            prefix_request, "Module", "id", "ca116",
+        ),
+    ))
 }
 
 /*
@@ -80,3 +105,22 @@ func main() {
 oryTypeIdentity":"241e4d36-60e0-49f8-b27e-99416745d98d","CategoryTypeName":null,"CategoryEvents":n
 ull,"Name":"COMSCI2","Identity":"3195ffd3-b64c-9a1b-d344-7fc17c57f03d"}],"Count":1}
 */
+/* GO equivalent
+type result_t struct {
+    ParentCategoryIdentities []string
+    CategoryTypeIdentity string
+    CategoryTypeName string
+    CategoryEvents string
+    Name string
+    Identity string
+}
+
+type message_t struct {
+    TotalPages int
+    CurrentPage int
+    Results []result_t
+    Count int
+}
+*/
+// "https://opentimetable.dcu.ie/broker/api/categoryTypes/241e4d36-60e0-49f8-b27e-99416745d98d/categories/events/filter")
+
