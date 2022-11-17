@@ -17,6 +17,14 @@ type opentimetable_api_t struct {
     headers http.Header
 }
 
+type opentimetable_request_t struct {
+    category string
+    request string
+    prefix string
+    headers http.Header
+    extra string
+}
+
 var def opentimetable_api_t = opentimetable_api_t {
     categories: map[string]string {
         "Programmes of Study": "241e4d36-60e0-49f8-b27e-99416745d98d",
@@ -51,13 +59,16 @@ func construct_api_request(
     return prefix + def.categories[cat] + def.requests[req] + extra
 }
 
-func api_request(url string) (string) {
+func (self opentimetable_request_t) do() (*json.Decoder) {
     client := http.Client {Timeout: time.Duration(3) * time.Second}
+    url := self.prefix + self.category + self.request + self.extra
+
+    print("making post request: " + url + "\n")
 
     req, err := http.NewRequest("POST", url, nil)
     die(err)
 
-    req.Header = def.headers
+    req.Header = self.headers
     res, err := client.Do(req)
     if res.StatusCode != 200 {
         fmt.Fprintf(os.Stderr, "http status code was not 200: status %d\n", res.StatusCode)
@@ -65,33 +76,31 @@ func api_request(url string) (string) {
     }
     die(err)
 
+    return json.NewDecoder(res.Body)
+}
+
+func main() {
     type identity_t struct {
         Results []struct {Identity string `json:"Identity"`} `json:"Results"`
     }
 
-    var msg identity_t
-    err = json.NewDecoder(res.Body).Decode(&msg)
-    die(err)
-
-    die(err)
-
-    if len(msg.Results) == 0 {
-        fmt.Fprintf(
-            os.Stderr,
-            "Results array is length 0, possibly invalid request, ",
-        )
-        os.Exit(1)
+    var req opentimetable_request_t = opentimetable_request_t {
+        category: def.categories["Programmes of Study"],
+        prefix: def.prefix,
+        request: def.requests["id"],
+        headers: def.headers,
+        extra: "comsci2",
     }
 
-    return msg.Results[0].Identity
-}
+    var msg identity_t
+    req.do().Decode(&msg)
 
-func main() {
-    fmt.Printf(api_request(
-        construct_api_request(
-            def.prefix, "Programmes of Study", "id", "comsci2",
-        ),
-    ))
+    req.request = def.requests["timetable"]
+    req.extra = ""
+
+    req.do()
+
+    // print(msg.Results[0].Identity)
 }
 
 /*
