@@ -10,26 +10,32 @@ import (
 
 /* some literals/constants */
 
-var category map[string]string = map[string]string {
-    "Programmes of Study": "241e4d36-60e0-49f8-b27e-99416745d98d",
-    "Module": "525fe79b-73c3-4b5c-8186-83c652b3adcc",
-    "Location": "1e042cb1-547d-41d4-ae93-a1f2c3d34538",
+type opentimetable_api_t struct {
+    categories map[string]string
+    requests map[string]string
+    prefix string
+    headers http.Header
 }
 
-var request map[string]string = map[string]string {
-    "id": "/categories/filter?pagenumber=1&query=",
-    "timetable": "/categories/events/filter",
-}
-
-const prefix_request string = "https://opentimetable.dcu.ie/broker/api/categorytypes/"
-
-var headers http.Header = http.Header {
-    "Authorization": {"basic T64Mdy7m["},
-    "Content-Type": {"application/json; charset=utf-8"},
-    "Accept": {"application/json; charset=utf-8"},
-    "credentials": {"include"},
-    "Origin": {"https://opentimetable.dcu.ie/"},
-    "Referer": {"https://opentimetable.dcu.ie/"},
+var def opentimetable_api_t = opentimetable_api_t {
+    categories: map[string]string {
+        "Programmes of Study": "241e4d36-60e0-49f8-b27e-99416745d98d",
+        "Module": "525fe79b-73c3-4b5c-8186-83c652b3adcc",
+        "Location": "1e042cb1-547d-41d4-ae93-a1f2c3d34538",
+    },
+    requests: map[string]string {
+        "id": "/categories/filter?pagenumber=1&query=",
+        "timetable": "/categories/events/filter",
+    },
+    prefix: "https://opentimetable.dcu.ie/broker/api/categorytypes/",
+    headers: http.Header {
+        "Authorization": {"basic T64Mdy7m["},
+        "Content-Type": {"application/json; charset=utf-8"},
+        "Accept": {"application/json; charset=utf-8"},
+        "credentials": {"include"},
+        "Origin": {"https://opentimetable.dcu.ie/"},
+        "Referer": {"https://opentimetable.dcu.ie/"},
+    },
 }
 
 func die(err error) {
@@ -39,8 +45,10 @@ func die(err error) {
     }
 }
 
-func construct_api_request(prefix string, cat string, req string, extra string) (string) {
-    return prefix + category[cat] + request[req] + extra
+func construct_api_request(
+    prefix string, cat string, req string, extra string,
+) (string) {
+    return prefix + def.categories[cat] + def.requests[req] + extra
 }
 
 func api_request(url string) (string) {
@@ -49,7 +57,7 @@ func api_request(url string) (string) {
     req, err := http.NewRequest("POST", url, nil)
     die(err)
 
-    req.Header = headers
+    req.Header = def.headers
     res, err := client.Do(req)
     if res.StatusCode != 200 {
         fmt.Fprintf(os.Stderr, "http status code was not 200: status %d\n", res.StatusCode)
@@ -57,15 +65,14 @@ func api_request(url string) (string) {
     }
     die(err)
 
-    var decoder *json.Decoder
-    decoder = json.NewDecoder(res.Body)
-
     type identity_t struct {
-        Results []struct{Identity string}
+        Results []struct {Identity string `json:"Identity"`} `json:"Results"`
     }
 
     var msg identity_t
-    err = decoder.Decode(&msg)
+    err = json.NewDecoder(res.Body).Decode(&msg)
+    die(err)
+
     die(err)
 
     if len(msg.Results) == 0 {
@@ -82,7 +89,7 @@ func api_request(url string) (string) {
 func main() {
     fmt.Printf(api_request(
         construct_api_request(
-            prefix_request, "Module", "id", "ca116",
+            def.prefix, "Programmes of Study", "id", "comsci2",
         ),
     ))
 }
