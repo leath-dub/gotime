@@ -9,69 +9,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+    "gotime/src"
 )
-
-type body_t struct {
-    ViewOptions struct {
-        Days []struct {
-            Name string
-            DayOfWeek int
-            IsDefault bool
-        }
-        Weeks []struct {
-            WeekNumber int
-            WeekLabel int
-            FirstDayInWeek string
-        }
-        TimePeriods []struct {
-            Description string
-            StartTime string
-            EndTime string
-            IsDefault bool
-        }
-        DatePeriods []struct {
-            Description string
-            StartDateTime string
-            EndDateTime string
-            IsDefault bool
-            IsThisWeek bool
-            IsNextWeek bool
-            Type string
-        }
-        LegendItems []any
-        InstitutionConfig struct {}
-        DateConfig struct {
-          FirstDayInWeek int
-          StartDate string
-          EndDate string
-        }
-    }
-    CategoryIdentities []string
-}
-
-type response_t struct {
-    CategoryTypeIdentity string
-    CategoryTypeName string
-    CategoryEvents []struct {
-        EventIdentity string
-        HostKey string
-        Description string
-        EndDateTime string
-        EventType string
-        IsPublished string
-        Location string
-        Owner string
-        StartDateTime string
-        IsDeleted bool
-        LastModified string
-        ExtraProperties []struct {
-            Name string
-            DisplayName string
-            Value string
-            Rank int
-        }
-    }
-}
 
 /* some literals/constants */
 
@@ -141,7 +80,7 @@ func start_of_week(date time.Time) time.Time {
     return date.AddDate(0, 0, -offset)
 }
 
-func construct_json_body(filename string, body *body_t, date time.Time, id []string) {
+func construct_json_body(filename string, body *lib.BodyTemplate, date time.Time, id []string) {
     buf, err := ioutil.ReadFile(filename)
     die(err)
 
@@ -150,8 +89,8 @@ func construct_json_body(filename string, body *body_t, date time.Time, id []str
     start := start_of_week(date)
 
     body.ViewOptions.Weeks[0].FirstDayInWeek = start.Format(time.RFC3339)
-    body.ViewOptions.Days[0].Name = start.Weekday().String()
-    body.ViewOptions.Days[0].DayOfWeek = int(start.Weekday())
+    body.ViewOptions.Days[0].Name = date.Weekday().String()
+    body.ViewOptions.Days[0].DayOfWeek = int(date.Weekday())
     body.CategoryIdentities = id
 }
 
@@ -163,11 +102,11 @@ func main() {
     }
 
     var req opentimetable_request_t = opentimetable_request_t {
-        category: def.categories["Location"],
+        category: def.categories["Programmes of Study"],
         prefix: def.prefix,
         request: def.requests["id"],
         headers: def.headers,
-        extra: "lg25",
+        extra: "comsci2",
     }
 
     var msg identity_t
@@ -183,13 +122,13 @@ func main() {
         extra: "",
     }
 
-    var jsl body_t
+    var jsl lib.BodyTemplate
     identities := []string {
         msg.Results[0].Identity,
     }
-    construct_json_body("body.json", &jsl, time.Now(), identities)
+    construct_json_body("body.json", &jsl, time.Now().AddDate(0, 0, -2), identities)
 
-    var other_msg []response_t
+    var other_msg []lib.ResponseTemplate
     send, err := json.Marshal(&jsl)
     die(err)
 

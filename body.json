@@ -1,0 +1,47 @@
+{
+  "ViewOptions": {
+    "Days": [
+      {
+        "Name": "Tuesday",
+        "DayOfWeek": 2,
+        "IsDefault": true
+      }
+    ],
+    "Weeks": [
+      {
+        "WeekNumber": 9,
+        "WeekLabel": "9",
+        "FirstDayInWeek": "2022-11-14T00:00:00"
+      }
+    ],
+    "TimePeriods": [
+      {
+        "Description": "All Day",
+        "StartTime": "08:00",
+        "EndTime": "22:00",
+        "IsDefault": true
+      }
+    ],
+    "DatePeriods": [
+      {
+        "Description": "This Week",
+        "StartDateTime": "2022-09-12T00:00:00.000Z",
+        "EndDateTime": "2023-09-08T00:00:00.000Z",
+        "IsDefault": true,
+        "IsThisWeek": true,
+        "IsNextWeek": false,
+        "Type": "ThisWeek"
+      }
+    ],
+    "LegendItems": [],
+    "InstitutionConfig": {},
+    "DateConfig": {
+      "FirstDayInWeek": 1,
+      "StartDate": "2022-09-12T00:00:00+00:00",
+      "EndDate": "2023-09-04T00:00:00+00:00"
+    }
+  },
+  "CategoryIdentities": [
+    "3195ffd3-b64c-9a1b-d344-7fc17c57f03d"
+  ]
+}
