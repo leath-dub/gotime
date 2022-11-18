@@ -1,12 +1,77 @@
 package main
 
 import (
-    "fmt"
-    "net/http"
-    "os"
-    "time"
-    "encoding/json"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"time"
 )
+
+type body_t struct {
+    ViewOptions struct {
+        Days []struct {
+            Name string
+            DayOfWeek int
+            IsDefault bool
+        }
+        Weeks []struct {
+            WeekNumber int
+            WeekLabel int
+            FirstDayInWeek string
+        }
+        TimePeriods []struct {
+            Description string
+            StartTime string
+            EndTime string
+            IsDefault bool
+        }
+        DatePeriods []struct {
+            Description string
+            StartDateTime string
+            EndDateTime string
+            IsDefault bool
+            IsThisWeek bool
+            IsNextWeek bool
+            Type string
+        }
+        LegendItems []any
+        InstitutionConfig struct {}
+        DateConfig struct {
+          FirstDayInWeek int
+          StartDate string
+          EndDate string
+        }
+    }
+    CategoryIdentities []string
+}
+
+type response_t struct {
+    CategoryTypeIdentity string
+    CategoryTypeName string
+    CategoryEvents []struct {
+        EventIdentity string
+        HostKey string
+        Description string
+        EndDateTime string
+        EventType string
+        IsPublished string
+        Location string
+        Owner string
+        StartDateTime string
+        IsDeleted bool
+        LastModified string
+        ExtraProperties []struct {
+            Name string
+            DisplayName string
+            Value string
+            Rank int
+        }
+    }
+}
 
 /* some literals/constants */
 
@@ -53,19 +118,11 @@ func die(err error) {
     }
 }
 
-func construct_api_request(
-    prefix string, cat string, req string, extra string,
-) (string) {
-    return prefix + def.categories[cat] + def.requests[req] + extra
-}
-
-func (self opentimetable_request_t) do() (*json.Decoder) {
-    client := http.Client {Timeout: time.Duration(3) * time.Second}
+func (self opentimetable_request_t) do(body io.Reader) *json.Decoder {
+    client := http.Client {Timeout: time.Duration(10) * time.Second}
     url := self.prefix + self.category + self.request + self.extra
 
-    print("making post request: " + url + "\n")
-
-    req, err := http.NewRequest("POST", url, nil)
+    req, err := http.NewRequest("POST", url, body)
     die(err)
 
     req.Header = self.headers
@@ -79,64 +136,68 @@ func (self opentimetable_request_t) do() (*json.Decoder) {
     return json.NewDecoder(res.Body)
 }
 
+func start_of_week(date time.Time) time.Time {
+    offset := int(date.Weekday()) - 1
+    return date.AddDate(0, 0, -offset)
+}
+
+func construct_json_body(filename string, body *body_t, date time.Time, id []string) {
+    buf, err := ioutil.ReadFile(filename)
+    die(err)
+
+    json.Unmarshal(buf, &body);
+
+    start := start_of_week(date)
+
+    body.ViewOptions.Weeks[0].FirstDayInWeek = start.Format(time.RFC3339)
+    body.ViewOptions.Days[0].Name = start.Weekday().String()
+    body.ViewOptions.Days[0].DayOfWeek = int(start.Weekday())
+    body.CategoryIdentities = id
+}
+
 func main() {
+    /* -- Make id request -- */
     type identity_t struct {
+        TotalPages int
         Results []struct {Identity string `json:"Identity"`} `json:"Results"`
     }
 
     var req opentimetable_request_t = opentimetable_request_t {
-        category: def.categories["Programmes of Study"],
+        category: def.categories["Location"],
         prefix: def.prefix,
         request: def.requests["id"],
         headers: def.headers,
-        extra: "comsci2",
+        extra: "lg25",
     }
 
     var msg identity_t
-    req.do().Decode(&msg)
+    req.do(nil).Decode(&msg)
+    /* -- -- */
 
-    req.request = def.requests["timetable"]
-    req.extra = ""
+    /* -- Make timetable request -- */
+    var other_req opentimetable_request_t = opentimetable_request_t {
+        category: def.categories["Programmes of Study"],
+        prefix: def.prefix,
+        request: def.requests["timetable"],
+        headers: def.headers,
+        extra: "",
+    }
 
-    req.do()
+    var jsl body_t
+    identities := []string {
+        msg.Results[0].Identity,
+    }
+    construct_json_body("body.json", &jsl, time.Now(), identities)
 
-    // print(msg.Results[0].Identity)
+    var other_msg []response_t
+    send, err := json.Marshal(&jsl)
+    die(err)
+
+    other_req.do(bytes.NewBuffer(send)).Decode(&other_msg)
+
+    fmt.Println(other_msg[0].CategoryEvents[0].ExtraProperties[0].DisplayName)
+    for i := 0; i < len(other_msg[0].CategoryEvents); i++ {
+        fmt.Println(other_msg[0].CategoryEvents[i].ExtraProperties[0].Value)
+    }
+    /* -- -- */
 }
-
-/*
-    curl -XPOST \
-        -H "Authorization: basic T64Mdy7m[" \
-        -H "Content-Type: application/json; charset=utf-8" \
-        -H "Accept: application/json; charset=utf-8" \
-        -H "credentials: include" \
-        -H "Origin: https://opentimetable.dcu.ie/" \
-        -H "Referer: https://opentimetable.dcu.ie/" \
-        "https://opentimetable.dcu.ie/broker/api/CategoryTypes/241e4d36-60e0-49f8-b27e-99416745d98d/Categories/Filter?pageNumber=1&query=${module}" |
-        jq '.Results[0].Identity' |
-*/
-
-/* response
-{"TotalPages":1,"CurrentPage":1,"Results":[{"ParentCategoryIdentities":["af9505b6-8af2-eae8-a6e3-8
-12154330274","7f505ad1-83a2-9bfd-5416-54c52e9de16d","f8c44a18-b544-04e9-134e-db5e84826dbf"],"Categ
-oryTypeIdentity":"241e4d36-60e0-49f8-b27e-99416745d98d","CategoryTypeName":null,"CategoryEvents":n
-ull,"Name":"COMSCI2","Identity":"3195ffd3-b64c-9a1b-d344-7fc17c57f03d"}],"Count":1}
-*/
-/* GO equivalent
-type result_t struct {
-    ParentCategoryIdentities []string
-    CategoryTypeIdentity string
-    CategoryTypeName string
-    CategoryEvents string
-    Name string
-    Identity string
-}
-
-type message_t struct {
-    TotalPages int
-    CurrentPage int
-    Results []result_t
-    Count int
-}
-*/
-// "https://opentimetable.dcu.ie/broker/api/categoryTypes/241e4d36-60e0-49f8-b27e-99416745d98d/categories/events/filter")
-
