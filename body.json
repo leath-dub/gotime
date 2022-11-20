@@ -2,8 +2,8 @@
   "ViewOptions": {
     "Days": [
       {
-        "Name": "Tuesday",
-        "DayOfWeek": 2,
+        "Name": "{{.Name}}",
+        "DayOfWeek": "{{.DayOfWeek}}",
         "IsDefault": true
       }
     ],
@@ -11,7 +11,7 @@
       {
         "WeekNumber": 9,
         "WeekLabel": "9",
-        "FirstDayInWeek": "2022-11-14T00:00:00"
+        "FirstDayInWeek": "{{.FirstDayInWeek}}"
       }
     ],
     "TimePeriods": [
@@ -41,7 +41,5 @@
       "EndDate": "2023-09-04T00:00:00+00:00"
     }
   },
-  "CategoryIdentities": [
-    "3195ffd3-b64c-9a1b-d344-7fc17c57f03d"
-  ]
+  "CategoryIdentities": [{{range $i, $v := .CategoryIdentities}}{{if $i}}, {{end}}"{{$v}}"{{ end }}]
 }

@@ -1,6 +1,13 @@
 package lib
 
 type BodyTemplate struct {
+    FirstDayInWeek string
+    Name string
+    DayOfWeek int
+    CategoryIdentities []string
+}
+/*
+type BodyTemplate struct {
     ViewOptions struct {
         Days []struct {
             Name string
@@ -37,6 +44,7 @@ type BodyTemplate struct {
     }
     CategoryIdentities []string
 }
+*/
 
 type ResponseTemplate struct {
     CategoryTypeIdentity string

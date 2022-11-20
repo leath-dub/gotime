@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"gotime/src"
+	"html/template"
 	"io"
-	"io/ioutil"
+
+	// "io/ioutil"
 	"net/http"
 	"os"
 	"time"
-    "gotime/src"
+
 )
 
 /* some literals/constants */
@@ -80,18 +83,20 @@ func start_of_week(date time.Time) time.Time {
     return date.AddDate(0, 0, -offset)
 }
 
-func construct_json_body(filename string, body *lib.BodyTemplate, date time.Time, id []string) {
-    buf, err := ioutil.ReadFile(filename)
+func construct_json_body(filename string, date time.Time, id []string, buf *bytes.Buffer) {
+    start := start_of_week(date)
+    body := lib.BodyTemplate {
+        FirstDayInWeek: start.Format(time.RFC3339),
+        Name: date.Weekday().String(),
+        DayOfWeek: int(date.Weekday()),
+        CategoryIdentities: id,
+    }
+
+    tmpl, err := template.ParseFiles(filename)
     die(err)
 
-    json.Unmarshal(buf, &body);
-
-    start := start_of_week(date)
-
-    body.ViewOptions.Weeks[0].FirstDayInWeek = start.Format(time.RFC3339)
-    body.ViewOptions.Days[0].Name = date.Weekday().String()
-    body.ViewOptions.Days[0].DayOfWeek = int(date.Weekday())
-    body.CategoryIdentities = id
+    err = tmpl.Execute(buf, body)
+    die(err)
 }
 
 func main() {
@@ -122,21 +127,24 @@ func main() {
         extra: "",
     }
 
-    var jsl lib.BodyTemplate
     identities := []string {
         msg.Results[0].Identity,
     }
-    construct_json_body("body.json", &jsl, time.Now().AddDate(0, 0, -2), identities)
+
+    var buf bytes.Buffer
+    construct_json_body("body.json", time.Now().AddDate(0, 0, 2), identities, &buf)
+    fmt.Println(buf.String())
 
     var other_msg []lib.ResponseTemplate
-    send, err := json.Marshal(&jsl)
-    die(err)
 
-    other_req.do(bytes.NewBuffer(send)).Decode(&other_msg)
+    other_req.do(&buf).Decode(&other_msg)
 
+    fmt.Println(other_msg)
+    /*
     fmt.Println(other_msg[0].CategoryEvents[0].ExtraProperties[0].DisplayName)
     for i := 0; i < len(other_msg[0].CategoryEvents); i++ {
         fmt.Println(other_msg[0].CategoryEvents[i].ExtraProperties[0].Value)
     }
+    */
     /* -- -- */
 }
