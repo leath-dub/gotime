@@ -1,10 +1,28 @@
 package lib
 
+import "time"
+
 type BodyTemplate struct {
     FirstDayInWeek string
     Name string
     DayOfWeek int
     CategoryIdentities []string
+}
+
+func startOfWeek(date time.Time) time.Time {
+    offset := int(date.Weekday()) - 1
+    return date.AddDate(0, 0, -offset)
+}
+
+func NewBody(date time.Time, id []string) BodyTemplate {
+    start := startOfWeek(date)
+
+    return BodyTemplate {
+        FirstDayInWeek: start.Format(time.RFC3339),
+        Name: date.Weekday().String(),
+        DayOfWeek: int(date.Weekday()),
+        CategoryIdentities: id,
+    }
 }
 /*
 type BodyTemplate struct {
@@ -69,4 +87,3 @@ type ResponseTemplate struct {
         }
     }
 }
-

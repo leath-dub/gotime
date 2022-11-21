@@ -41,5 +41,7 @@
       "EndDate": "2023-09-04T00:00:00+00:00"
     }
   },
-  "CategoryIdentities": [{{range $i, $v := .CategoryIdentities}}{{if $i}}, {{end}}"{{$v}}"{{ end }}]
+  "CategoryIdentities": [
+    {{range $i, $v := .CategoryIdentities}}{{if $i}}, {{end}}"{{$v}}"{{ end }}
+  ]
 }
