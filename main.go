@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"gotime/src"
 	"html/template"
+	"log"
 	"net/http"
+	"sort"
 	"time"
-    "log"
+    "strings"
 )
 
 /* default body file name */
@@ -103,6 +105,25 @@ func getId(category string, query string) string {
     return responseStruct.Results[0].Identity
 }
 
+func max(x, y int) int {
+    if x < y {
+        return y
+    }
+    return x
+}
+
+func maxCategoryEvent(events *lib.CategoryEvents) int {
+    var localMax int
+    globalMax := 0
+    for _, event := range *events {
+        localMax = max(len(event.ExtraProperties[0].Value), len(event.Location))
+        if localMax > globalMax {
+            globalMax = localMax
+        }
+    }
+    return globalMax
+}
+
 /* execute timetable request */
 func getTimetable(request *Request, date time.Time) {
     body := lib.NewBody(date, request.Id)
@@ -134,17 +155,23 @@ func getTimetable(request *Request, date time.Time) {
     /* write response to stdout */
     json.NewDecoder(response.Body).Decode(&decode)
 
+    /* sort CategoryEvents based on time -- see lib.go for more details */
+    events := decode[0].CategoryEvents
+    sort.Stable(lib.CategoryEvents(events))
+
+    lineWidth := maxCategoryEvent(&events)
+
     var responseTime time.Time
-    for i, v := range decode[0].CategoryEvents {
-        fmt.Println("Name:", v.ExtraProperties[0].Value)
-        fmt.Println("Location:", v.Location)
-        fmt.Println("Lecturer:", v.ExtraProperties[1].Value)
+    for i, v := range events {
+        fmt.Println(strings.Repeat("─", lineWidth))
+        fmt.Print("\033[3m", v.ExtraProperties[0].Value, "\033[m\n")
+        fmt.Println("\033[35mLocation:\033[m", v.Location)
+        fmt.Println("\033[36mLecturer:\033[m", v.ExtraProperties[1].Value)
         responseTime, err = time.Parse(time.RFC3339, v.StartDateTime)
-        fmt.Printf("Time: %d:%02d-", responseTime.Hour(), responseTime.Minute())
+        fmt.Printf("\033[34mTime:\033[m %d:%02d-", responseTime.Hour(), responseTime.Minute())
         responseTime, err = time.Parse(time.RFC3339, v.EndDateTime)
         fmt.Printf("%d:%02d\n", responseTime.Hour(), responseTime.Minute())
         if i != len(decode[0].CategoryEvents) - 1 {
-            fmt.Println("------")
         }
     }
 }
@@ -165,9 +192,9 @@ func (self Request) Do() {
 
 func main() {
     var newRequest = Request {
-        Category: Module,
+        Category: ProgrammesOfStudy,
         Type: Timetable,
-        Query: "ca116",
+        Query: "comsci2",
     }
     newRequest.Do()
 }

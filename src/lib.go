@@ -24,66 +24,56 @@ func NewBody(date time.Time, id []string) BodyTemplate {
         CategoryIdentities: id,
     }
 }
-/*
-type BodyTemplate struct {
-    ViewOptions struct {
-        Days []struct {
-            Name string
-            DayOfWeek int
-            IsDefault bool
-        }
-        Weeks []struct {
-            WeekNumber int
-            WeekLabel int
-            FirstDayInWeek string
-        }
-        TimePeriods []struct {
-            Description string
-            StartTime string
-            EndTime string
-            IsDefault bool
-        }
-        DatePeriods []struct {
-            Description string
-            StartDateTime string
-            EndDateTime string
-            IsDefault bool
-            IsThisWeek bool
-            IsNextWeek bool
-            Type string
-        }
-        LegendItems []any
-        InstitutionConfig struct {}
-        DateConfig struct {
-          FirstDayInWeek int
-          StartDate string
-          EndDate string
-        }
+
+type CategoryEvent struct {
+    EventIdentity string
+    HostKey string
+    Description string
+    EndDateTime string
+    EventType string
+    IsPublished string
+    Location string
+    Owner string
+    StartDateTime string
+    IsDeleted bool
+    LastModified string
+    ExtraProperties []struct {
+        Name string
+        DisplayName string
+        Value string
+        Rank int
     }
-    CategoryIdentities []string
 }
-*/
+
+type CategoryEvents []CategoryEvent
 
 type ResponseTemplate struct {
     CategoryTypeIdentity string
     CategoryTypeName string
-    CategoryEvents []struct {
-        EventIdentity string
-        HostKey string
-        Description string
-        EndDateTime string
-        EventType string
-        IsPublished string
-        Location string
-        Owner string
-        StartDateTime string
-        IsDeleted bool
-        LastModified string
-        ExtraProperties []struct {
-            Name string
-            DisplayName string
-            Value string
-            Rank int
-        }
-    }
+    CategoryEvents CategoryEvents
+}
+
+func getMinutes(time *time.Time) int {
+    return (time.Hour() * 60) + time.Minute()
+}
+
+/* Functions Len, Less & Swap setup a sorting interface (sort.Interface) */
+func (self CategoryEvents) Len() int {
+    return len(self)
+}
+
+func (self CategoryEvents) Less(i, j int) bool {
+    /* Parse date into Time type */
+    iTime, _ := time.Parse(time.RFC3339, self[i].StartDateTime)
+    jTime, _ := time.Parse(time.RFC3339, self[j].StartDateTime)
+
+    /* get time in minutes */
+    return getMinutes(&iTime) < getMinutes(&jTime)
+}
+
+
+func (self CategoryEvents) Swap(i, j int) {
+    tmp := self[i]
+    self[i] = self[j]
+    self[j] = tmp
 }
