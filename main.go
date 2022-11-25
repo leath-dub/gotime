@@ -3,14 +3,17 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gotime/src"
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"sort"
+	"strings"
 	"time"
-    "strings"
 )
 
 /* default body file name */
@@ -100,9 +103,14 @@ func getId(category string, query string) string {
 
     /* Write response into data struct */
     var responseStruct IdResponse
-    json.NewDecoder(response.Body).Decode(&responseStruct)
+    err = json.NewDecoder(response.Body).Decode(&responseStruct)
+    dieError("error in decoding response: ", err)
 
-    return responseStruct.Results[0].Identity
+    if len(responseStruct.Results) > 0 {
+        return responseStruct.Results[0].Identity
+    }
+    log.Fatalln("empty response")
+    return ""
 }
 
 func max(x, y int) int {
@@ -116,7 +124,7 @@ func maxCategoryEvent(events *lib.CategoryEvents) int {
     var localMax int
     globalMax := 0
     for _, event := range *events {
-        localMax = max(len(event.ExtraProperties[0].Value), len(event.Location))
+        localMax = max(len(event.ExtraProperties[0].Value), len(event.Location) + 10)
         if localMax > globalMax {
             globalMax = localMax
         }
@@ -156,13 +164,20 @@ func getTimetable(request *Request, date time.Time) {
     json.NewDecoder(response.Body).Decode(&decode)
 
     /* sort CategoryEvents based on time -- see lib.go for more details */
+    if len(decode) == 0 {
+        return
+    }
     events := decode[0].CategoryEvents
-    sort.Stable(lib.CategoryEvents(events))
 
     lineWidth := maxCategoryEvent(&events)
 
+    sort.Stable(lib.CategoryEvents(events))
+
     var responseTime time.Time
-    for i, v := range events {
+    for _, v := range events {
+        if len(v.ExtraProperties) < 2 {
+            continue
+        }
         fmt.Println(strings.Repeat("─", lineWidth))
         fmt.Print("\033[3m", v.ExtraProperties[0].Value, "\033[m\n")
         fmt.Println("\033[35mLocation:\033[m", v.Location)
@@ -171,8 +186,6 @@ func getTimetable(request *Request, date time.Time) {
         fmt.Printf("\033[34mTime:\033[m %d:%02d-", responseTime.Hour(), responseTime.Minute())
         responseTime, err = time.Parse(time.RFC3339, v.EndDateTime)
         fmt.Printf("%d:%02d\n", responseTime.Hour(), responseTime.Minute())
-        if i != len(decode[0].CategoryEvents) - 1 {
-        }
     }
 }
 
@@ -186,15 +199,87 @@ func (self Request) Do() {
             if !(len(self.Id) > 0) {
                 self.Id = append(self.Id, getId(self.Category, self.Query))
             }
-            getTimetable(&self, time.Now())
+            getTimetable(&self, time.Now().AddDate(0, 0, 1))
     }
 }
 
-func main() {
-    var newRequest = Request {
-        Category: ProgrammesOfStudy,
-        Type: Timetable,
-        Query: "comsci2",
+func getOpt(n int) (int, error) {
+    var char []byte = make([]byte, 1)
+    var pos int
+    for {
+        os.Stdin.Read(char)
+        switch char[0] {
+            case 66: fallthrough /* down arrow */
+            case 'j': if pos < n - 1 {
+                pos++
+                fmt.Print("\033[1B")
+            }
+            case 65: fallthrough /* up arrow */
+            case 'k': if pos > 0 {
+                pos--
+                fmt.Print("\033[1A")
+            }
+            case 'q': {
+                return 0, errors.New("error: user exited")
+            }
+            case '\n': {
+                fmt.Print("*\033[2D")
+                fmt.Printf("\033[%dB", n - pos)
+                return pos, nil
+            }
+        }
     }
+}
+
+func getInput() Request {
+    var result Request
+
+    /* disable input buffering */
+    exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
+    /* disable echo of input */
+    exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+
+    options := []string { ProgrammesOfStudy, Location, Module }
+
+    /* clear screen and move cursor to HOME */
+    fmt.Print("\033[2J\033[H")
+    fmt.Println("Choose a category:")
+    fmt.Println("[ ] Programmes of Study")
+    fmt.Println("[ ] Location")
+    fmt.Println("[ ] Module")
+    fmt.Print("\033[H\033[1B\033[1C")
+
+    pos, err := getOpt(3)
+    dieError("", err)
+
+    result.Category = options[pos]
+
+    opts := []bool { Timetable, Id }
+    /* clear screen and move cursor to HOME */
+    fmt.Print("\033[2J\033[H")
+    fmt.Println("Choose Request Type:")
+    fmt.Println("[ ] Timetable")
+    fmt.Println("[ ] Id")
+    fmt.Print("\033[H\033[1B\033[1C")
+
+    pos, err = getOpt(2)
+    dieError("", err)
+
+    result.Type = opts[pos]
+
+    exec.Command("stty", "-F", "/dev/tty", "-cbreak").Run()
+    exec.Command("stty", "-F", "/dev/tty", "echo").Run()
+
+    fmt.Print("Query: ")
+    var str string
+    fmt.Scanf("%s\n", &str)
+    fmt.Print("\033[2J\033[H")
+
+    result.Query = str
+    return result
+}
+
+func main() {
+    newRequest := getInput()
     newRequest.Do()
 }
