@@ -17,3 +17,4 @@ $ go build
 ```sh
 $ ./gotime
 ```
+[sample](https://imgur.com/a/BTM5xxO)
