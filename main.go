@@ -12,12 +12,14 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
 /* default body file name */
 const TemplateFile = "body.json"
+var offset = 0
 
 /* Go template for url */
 const UrlTemplate =
@@ -199,7 +201,7 @@ func (self Request) Do() {
             if !(len(self.Id) > 0) {
                 self.Id = append(self.Id, getId(self.Category, self.Query))
             }
-            getTimetable(&self, time.Now().AddDate(0, 0, 1))
+            getTimetable(&self, time.Now().AddDate(0, 0, offset))
     }
 }
 
@@ -280,6 +282,10 @@ func getInput() Request {
 }
 
 func main() {
+    /* temporary: specify argument -- how many days from now */
+    if len(os.Args) > 1 {
+        offset, _ = strconv.Atoi(os.Args[1])
+    }
     newRequest := getInput()
     newRequest.Do()
 }
